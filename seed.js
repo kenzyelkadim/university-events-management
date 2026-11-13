@@ -96,24 +96,6 @@ const seed = db.transaction(() => {
       ]
     },
   ];
-  const removedSampleTitles = [
-    'Accessible Design Workshop',
-    'Campus Film Night',
-    'Campus Garden Volunteer Morning',
-    'CV and Interview Skills Clinic',
-    'Arabic Calligraphy Workshop'
-  ];
-  const placeholders = removedSampleTitles.map(() => '?').join(', ');
-  const oldEvents = db.prepare(`
-    SELECT id FROM events WHERE staff_id = ? AND title IN (${placeholders})
-  `).all(staffMember.id, ...removedSampleTitles);
-  const deleteRegistrations = db.prepare('DELETE FROM registrations WHERE event_id = ?');
-  const deleteEvent = db.prepare('DELETE FROM events WHERE id = ?');
-  for (const event of oldEvents) {
-    deleteRegistrations.run(event.id);
-    deleteEvent.run(event.id);
-  }
-
   const addEvent = db.prepare(`
     INSERT INTO events (title, description, location, event_date, capacity, staff_id, category)
     VALUES (?, ?, ?, ?, ?, ?, ?)

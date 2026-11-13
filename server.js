@@ -1,45 +1,17 @@
 const crypto = require('crypto');
-const fs = require('fs');
 const path = require('path');
 const express = require('express');
-const multer = require('multer');
 const db = require('./db');
 const { verifyPassword } = require('./auth');
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 const sessions = new Map();
-const eventImageDirectory = path.resolve(
-  process.env.EVENT_UPLOAD_DIR || path.join(__dirname, 'uploads', 'events')
-);
 const CATEGORIES = new Set(['Academic', 'Careers', 'Community', 'Social', 'Sports', 'Workshop', 'General']);
-const imageUpload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 2 * 1024 * 1024, files: 1, fields: 9 },
-  fileFilter(req, file, done) {
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype)) {
-      const error = new Error('Choose a JPG, PNG or WebP image.');
-      error.status = 400;
-      done(error);
-      return;
-    }
-    done(null, true);
-  }
-});
 
 // Serve the website and accept JSON data from its forms.
 app.use(express.json({ limit: '100kb' }));
 app.use(express.static(path.join(__dirname, 'public')));
-
-app.get('/api/event-images/:filename', (req, res) => {
-  const filename = req.params.filename;
-  if (!/^[a-f0-9]{32}\.(jpg|png|webp)$/.test(filename)) return fail(res, 404, 'Event photo not found.');
-  const imagePath = path.join(eventImageDirectory, filename);
-  if (!fs.existsSync(imagePath)) return fail(res, 404, 'Event photo not found.');
-  res.set('X-Content-Type-Options', 'nosniff');
-  res.set('Cache-Control', 'public, max-age=31536000, immutable');
-  return res.type(path.extname(filename)).sendFile(imagePath);
-});
 
 // Small helpers used by several API routes.
 function fail(res, status, message) {
@@ -89,8 +61,7 @@ function canManageEvent(user, event) {
 function eventById(id) {
   return db.prepare(`
     SELECT e.id, e.title, e.description, e.location, e.event_date, e.capacity,
-      e.staff_id, e.category, e.image_alt, e.event_mode, e.meeting_url,
-      CASE WHEN e.image_path IS NULL THEN NULL ELSE '/api/event-images/' || e.image_path END AS image_url,
+      e.staff_id, e.category,
       u.name AS staff_name,
       (SELECT COUNT(*) FROM registrations r WHERE r.event_id = e.id) AS registered_count
     FROM events e JOIN users u ON u.id = e.staff_id
@@ -98,18 +69,13 @@ function eventById(id) {
   `).get(id);
 }
 
-function validEvent(body, hasImage, allowPastDate = false) {
+function validEvent(body, allowPastDate = false) {
   const title = cleanText(body.title, 120);
   const description = cleanText(body.description, 2000);
   const location = cleanText(body.location, 160);
   const category = cleanText(body.category, 60);
   const eventDate = cleanText(body.eventDate, 10);
   const capacity = Number(body.capacity);
-  const imageAlt = cleanText(body.imageAlt, 180);
-  const eventMode = body.eventMode === undefined || body.eventMode === ''
-    ? 'in_person'
-    : cleanText(body.eventMode, 20);
-  const meetingUrl = cleanText(body.meetingUrl, 500);
   const dateIsValid = isCalendarDate(eventDate);
 
   if (!title || !description || !location || !CATEGORIES.has(category) || !dateIsValid) {
@@ -118,60 +84,10 @@ function validEvent(body, hasImage, allowPastDate = false) {
   if (!allowPastDate && eventDate < new Date().toISOString().slice(0, 10)) {
     return { error: 'Choose today or a future date for a new event.' };
   }
-  if (!['in_person', 'online'].includes(eventMode)) {
-    return { error: 'Choose whether the event is in person or online.' };
-  }
-  if (eventMode === 'online') {
-    let parsedMeetingUrl;
-    try {
-      parsedMeetingUrl = new URL(meetingUrl);
-    } catch {
-      return { error: 'Enter a valid HTTPS meeting link for an online event.' };
-    }
-    if (parsedMeetingUrl.protocol !== 'https:' || parsedMeetingUrl.username || parsedMeetingUrl.password) {
-      return { error: 'Meeting links must use HTTPS and cannot contain embedded credentials.' };
-    }
-  }
   if (!Number.isInteger(capacity) || capacity < 1 || capacity > 10000) {
     return { error: 'Capacity must be a whole number between 1 and 10,000.' };
   }
-  if (hasImage && !imageAlt) return { error: 'Describe the event photo for screen-reader users.' };
-  return {
-    title, description, location, category, eventDate, capacity, imageAlt,
-    eventMode, meetingUrl: eventMode === 'online' ? meetingUrl : ''
-  };
-}
-
-function imageExtension(file) {
-  const bytes = file.buffer;
-  if (file.mimetype === 'image/jpeg' && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'jpg';
-  if (file.mimetype === 'image/png' && bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) return 'png';
-  if (file.mimetype === 'image/webp'
-    && bytes.toString('ascii', 0, 4) === 'RIFF'
-    && bytes.toString('ascii', 8, 12) === 'WEBP') return 'webp';
-  return '';
-}
-
-function storeEventImage(file) {
-  const extension = imageExtension(file);
-  if (!extension) {
-    const error = new Error('The selected file is not a valid JPG, PNG or WebP image.');
-    error.status = 400;
-    throw error;
-  }
-  const filename = `${crypto.randomBytes(16).toString('hex')}.${extension}`;
-  fs.mkdirSync(eventImageDirectory, { recursive: true });
-  fs.writeFileSync(path.join(eventImageDirectory, filename), file.buffer, { flag: 'wx' });
-  return filename;
-}
-
-function removeEventImage(filename) {
-  if (!filename) return;
-  try {
-    fs.unlinkSync(path.join(eventImageDirectory, filename));
-  } catch (error) {
-    if (error.code !== 'ENOENT') console.error('Could not remove replaced event photo.', error);
-  }
+  return { title, description, location, category, eventDate, capacity };
 }
 
 // Sign in and account details.
@@ -222,8 +138,7 @@ app.get('/api/events', (req, res) => {
   }
   const events = db.prepare(`
     SELECT e.id, e.title, e.description, e.location, e.event_date, e.capacity,
-      e.staff_id, e.category, e.image_alt, e.event_mode,
-      CASE WHEN e.image_path IS NULL THEN NULL ELSE '/api/event-images/' || e.image_path END AS image_url,
+      e.staff_id, e.category,
       u.name AS staff_name,
       (SELECT COUNT(*) FROM registrations r WHERE r.event_id = e.id) AS registered_count
     FROM events e JOIN users u ON u.id = e.staff_id
@@ -236,8 +151,7 @@ app.get('/api/events', (req, res) => {
 app.get('/api/staff/events', requireRoles('staff'), (req, res) => {
   const events = db.prepare(`
     SELECT e.id, e.title, e.description, e.location, e.event_date, e.capacity,
-      e.staff_id, e.category, e.image_alt, e.event_mode, e.meeting_url,
-      CASE WHEN e.image_path IS NULL THEN NULL ELSE '/api/event-images/' || e.image_path END AS image_url,
+      e.staff_id, e.category,
       u.name AS staff_name,
       (SELECT COUNT(*) FROM registrations r WHERE r.event_id = e.id) AS registered_count
     FROM events e JOIN users u ON u.id = e.staff_id
@@ -250,60 +164,34 @@ app.get('/api/staff/events', requireRoles('staff'), (req, res) => {
 app.get('/api/events/:id', requireRoles('student', 'staff'), (req, res) => {
   const event = eventById(Number(req.params.id));
   if (!event) return fail(res, 404, 'Event not found.');
-  if (event.event_mode === 'online') {
-    const isOwner = req.user.role === 'staff' && event.staff_id === req.user.id;
-    const isRegisteredStudent = req.user.role === 'student'
-      && db.prepare('SELECT 1 FROM registrations WHERE event_id = ? AND student_id = ?')
-        .get(event.id, req.user.id);
-    if (!isOwner && !isRegisteredStudent) event.meeting_url = '';
-  }
   res.json(event);
 });
 
-app.post('/api/events', requireRoles('staff'), imageUpload.single('image'), (req, res) => {
-  const data = validEvent(requestBody(req), Boolean(req.file));
+app.post('/api/events', requireRoles('staff'), (req, res) => {
+  const data = validEvent(requestBody(req));
   if (data.error) return fail(res, 400, data.error);
-  const imagePath = req.file ? storeEventImage(req.file) : null;
-  let result;
-  try {
-    result = db.prepare(`
-      INSERT INTO events (title, description, location, event_date, capacity, staff_id,
-                          category, image_path, image_alt, event_mode, meeting_url)
-      VALUES (@title, @description, @location, @eventDate, @capacity, @staffId,
-              @category, @imagePath, @imageAlt, @eventMode, @meetingUrl)
-    `).run({ ...data, staffId: req.user.id, imagePath });
-  } catch (error) {
-    removeEventImage(imagePath);
-    throw error;
-  }
+  const result = db.prepare(`
+    INSERT INTO events (title, description, location, event_date, capacity, staff_id, category)
+    VALUES (@title, @description, @location, @eventDate, @capacity, @staffId, @category)
+  `).run({ ...data, staffId: req.user.id });
   res.status(201).json(eventById(Number(result.lastInsertRowid)));
 });
 
-app.put('/api/events/:id', requireRoles('staff'), imageUpload.single('image'), (req, res) => {
+app.put('/api/events/:id', requireRoles('staff'), (req, res) => {
   const event = db.prepare('SELECT * FROM events WHERE id = ?').get(Number(req.params.id));
   if (!event) return fail(res, 404, 'Event not found.');
   if (!canManageEvent(req.user, event)) return fail(res, 403, 'You can only edit events you created.');
-  const data = validEvent(requestBody(req), Boolean(req.file), true);
+  const data = validEvent(requestBody(req), true);
   if (data.error) return fail(res, 400, data.error);
   const registered = db.prepare(
     'SELECT COUNT(*) AS count FROM registrations WHERE event_id = ?'
   ).get(event.id).count;
   if (data.capacity < registered) return fail(res, 409, 'Capacity cannot be lower than the number of registered students.');
-  const imagePath = req.file ? storeEventImage(req.file) : event.image_path;
-  const imageAlt = req.file ? data.imageAlt : event.image_alt;
-  try {
-    db.prepare(`
+  db.prepare(`
     UPDATE events SET title = @title, description = @description, location = @location,
-      event_date = @eventDate, capacity = @capacity, category = @category,
-      image_path = @imagePath, image_alt = @imageAlt,
-      event_mode = @eventMode, meeting_url = @meetingUrl
+      event_date = @eventDate, capacity = @capacity, category = @category
     WHERE id = @id
-    `).run({ ...data, imagePath, imageAlt, id: event.id });
-  } catch (error) {
-    if (req.file) removeEventImage(imagePath);
-    throw error;
-  }
-  if (req.file && event.image_path) removeEventImage(event.image_path);
+  `).run({ ...data, id: event.id });
   res.json(eventById(event.id));
 });
 
@@ -379,13 +267,6 @@ app.patch('/api/registrations/:id/attendance', requireRoles('staff'), (req, res)
 // Return clear JSON errors instead of Express's default HTML error page.
 app.use((error, req, res, next) => {
   if (res.headersSent) return next(error);
-  if (error instanceof multer.MulterError) {
-    const status = error.code === 'LIMIT_FILE_SIZE' ? 413 : 400;
-    const message = error.code === 'LIMIT_FILE_SIZE'
-      ? 'Event photos must be 2 MB or smaller.'
-      : 'Choose one event photo and try again.';
-    return fail(res, status, message);
-  }
   const malformedJson = error instanceof SyntaxError && error.status === 400 && 'body' in error;
   if (malformedJson) return fail(res, 400, 'Request body must contain valid JSON.');
   if (error.status === 400) return fail(res, 400, error.message);

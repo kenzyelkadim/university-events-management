@@ -216,8 +216,7 @@ h3 { font-size: 1.1rem; font-weight: 700; }
 .page-heading-row .button-link { flex: 0 0 auto; margin: 0; }
 
 .panel,
-.event-card,
-.card-list > li {
+.event-card {
   padding: var(--s5);
   background: var(--surface);
   border: 1px solid var(--line);
@@ -254,17 +253,8 @@ h3 { font-size: 1.1rem; font-weight: 700; }
 }
 .card-grid > li { min-width: 0; }
 
-/* Event cards: list or grid, each with a dark blue top rule */
-.card-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr));
-  gap: var(--s4);
-  margin: var(--s5) 0;
-  padding: 0;
-  list-style: none;
-}
-.event-card,
-.card-list > li {
+/* Event cards have a dark blue top rule */
+.event-card {
   display: flex;
   flex-direction: column;
   gap: var(--s3);
@@ -297,63 +287,13 @@ h3 { font-size: 1.1rem; font-weight: 700; }
   border-radius: calc(var(--radius) - 1px) calc(var(--radius) - 1px) 0 0;
   pointer-events: none;
 }
-.event-image-preview {
-  display: block;
-  width: min(100%, 32rem);
-  max-height: 16rem;
-  margin-top: var(--s3);
-  object-fit: cover;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-}
 .event-card h2,
-.event-card h3,
-.card-list > li h2,
-.card-list > li h3 { margin: 0; font-size: 1.2rem; }
-.event-card p,
-.card-list > li p { margin: 0; }
+.event-card h3 { margin: 0; font-size: 1.2rem; }
+.event-card p { margin: 0; }
 
 .event-method { align-self: flex-start; margin-top: auto; }
 
 .event-feedback { margin: 0 0 var(--s4); }
-
-/* Optional meta row: <ul class="event-meta"><li>Main Hall</li>...</ul> */
-.event-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.event-meta li {
-  padding: var(--s1) var(--s3);
-  background: var(--surface-alt);
-  border-radius: 10rem;
-  font-size: 0.92rem;
-}
-
-/* Optional action area at the bottom of a card */
-.event-card-actions { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: auto; padding-top: var(--s2); }
-.event-card-actions > * { margin: 0; }
-
-/* The memorable element: a calendar-style date stamp.
-   <span class="event-date"><span class="event-date-month">Dec</span>
-   <span class="event-date-day">12</span></span> */
-.event-date {
-  display: inline-flex;
-  flex-direction: column;
-  align-self: flex-start;
-  min-width: 4.25rem;
-  overflow: hidden;
-  text-align: center;
-  line-height: 1.1;
-  background: #fff;
-  border: 2px solid var(--navy);
-  border-radius: var(--radius-sm);
-}
-.event-date-month { display: block; padding: var(--s1) var(--s2); color: var(--navy); background: var(--accent); font-size: 0.85rem; font-weight: 800; }
-.event-date-day { display: block; padding: var(--s1) var(--s2) var(--s2); color: var(--navy); font-size: 1.7rem; font-weight: 800; }
 
 dl { display: grid; grid-template-columns: minmax(9rem, 0.3fr) 1fr; gap: var(--s3) var(--s4); }
 dt { font-weight: 700; }
@@ -362,15 +302,6 @@ dd { margin: 0; }
 .back-link { display: inline-block; margin-bottom: var(--s3); font-weight: 700; text-decoration: none; }
 .back-link::before { content: "\2190"; margin-right: var(--s2); }
 .back-link:hover { text-decoration: underline; }
-
-.empty-state,
-#empty-state {
-  padding: var(--s5);
-  color: var(--muted);
-  background: var(--surface);
-  border: 2px dashed var(--line-strong);
-  border-radius: var(--radius);
-}
 
 /* 5. Forms --------------------------------------------------- */
 form label,
@@ -454,12 +385,6 @@ button.button-secondary,
 button.button-secondary:hover,
 .button-link.button-secondary:hover { color: var(--primary-dark); background: var(--primary-tint); border-color: var(--primary-dark); }
 .filter-panel .button-secondary { color: var(--primary-dark); background: #fff; }
-
-/* Positive and destructive actions (Approve / Reject) */
-button.button-success { background: var(--success); border-color: var(--success); }
-button.button-success:hover:not(:disabled) { color: #fff; background: var(--success-dark); border-color: var(--success-dark); }
-button.button-danger { background: var(--danger); border-color: var(--danger); }
-button.button-danger:hover:not(:disabled) { color: #fff; background: var(--danger-dark); border-color: var(--danger-dark); }
 
 button:disabled,
 button[aria-disabled="true"] { opacity: 0.6; cursor: not-allowed; }

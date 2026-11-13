@@ -1,6 +1,4 @@
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
 const { test } = require('node:test');
 const app = require('../server');
 const db = require('../db');
@@ -14,9 +12,6 @@ const testEmails = {
   student: `student-${suffix}@example.test`,
   secondStudent: `second-${suffix}@example.test`
 };
-const eventImageDirectory = path.resolve(
-  process.env.EVENT_UPLOAD_DIR || path.join(__dirname, '..', 'uploads', 'events')
-);
 const createdUserIds = [];
 const createdEventIds = [];
 let server;
@@ -37,12 +32,11 @@ function pastDate() {
 async function request(path, { token, method = 'GET', body } = {}) {
   const headers = {};
   if (token) headers.Authorization = `Bearer ${token}`;
-  const isFormData = body instanceof FormData;
-  if (body !== undefined && !isFormData) headers['Content-Type'] = 'application/json';
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
   return fetch(`${baseUrl}${path}`, {
     method,
     headers,
-    body: body === undefined ? undefined : isFormData ? body : JSON.stringify(body)
+    body: body === undefined ? undefined : JSON.stringify(body)
   });
 }
 
@@ -54,6 +48,8 @@ test('student registration and staff event management', async (t) => {
   const eventColumns = db.prepare('PRAGMA table_info(events)').all().map((row) => row.name);
   const registrationColumns = db.prepare('PRAGMA table_info(registrations)').all().map((row) => row.name);
   assert.equal(eventColumns.includes('registration_method'), false);
+  assert.equal(eventColumns.includes('image_path'), true);
+  assert.equal(eventColumns.includes('image_alt'), true);
   assert.equal(eventColumns.includes('event_mode'), true);
   assert.equal(eventColumns.includes('meeting_url'), true);
   assert.equal(eventColumns.includes('application_question'), false);
@@ -74,15 +70,6 @@ test('student registration and staff event management', async (t) => {
 
   t.after(() => {
     if (server) server.close();
-    const placeholders = createdEventIds.map(() => '?').join(', ');
-    const images = createdEventIds.length
-      ? db.prepare(`SELECT image_path FROM events WHERE id IN (${placeholders})`).all(...createdEventIds)
-      : [];
-    for (const event of images) {
-      if (event.image_path) {
-        fs.rmSync(path.join(eventImageDirectory, event.image_path), { force: true });
-      }
-    }
     for (const id of createdEventIds) db.prepare('DELETE FROM registrations WHERE event_id = ?').run(id);
     if (createdUserIds.length) {
       const placeholders = createdUserIds.map(() => '?').join(', ');
@@ -163,22 +150,6 @@ test('student registration and staff event management', async (t) => {
   });
   assert.equal(pastEvent.status, 400);
 
-  const insecureMeetingLink = await request('/api/events', {
-    token: staff.token,
-    method: 'POST',
-    body: {
-      title: 'Online event with insecure link',
-      description: 'Meeting links must use HTTPS.',
-      location: 'Online',
-      eventDate: futureDate(),
-      capacity: 1,
-      category: 'Academic',
-      eventMode: 'online',
-      meetingUrl: 'http://meet.example.test/session'
-    }
-  });
-  assert.equal(insecureMeetingLink.status, 400);
-
   const forbidden = await request('/api/events', {
     token: student.token,
     method: 'POST',
@@ -186,7 +157,7 @@ test('student registration and staff event management', async (t) => {
   });
   assert.equal(forbidden.status, 403);
 
-  const createEvent = async (token, title, capacity, details = {}) => {
+  const createEvent = async (token, title, capacity) => {
     const response = await request('/api/events', {
       token,
       method: 'POST',
@@ -196,138 +167,49 @@ test('student registration and staff event management', async (t) => {
         location: 'Test Hall',
         eventDate: futureDate(),
         capacity,
-        category: 'Academic',
-        eventMode: details.eventMode || 'in_person',
-        meetingUrl: details.meetingUrl || ''
+        category: 'Academic'
       }
     });
     assert.equal(response.status, 201);
     const event = await response.json();
     createdEventIds.push(event.id);
     assert.equal(event.registered_count, 0);
+    assert.equal(Object.hasOwn(event, 'image_url'), false);
+    assert.equal(Object.hasOwn(event, 'event_mode'), false);
+    assert.equal(Object.hasOwn(event, 'meeting_url'), false);
     return event;
   };
 
   const fullEvent = await createEvent(staff.token, 'Test capacity event', 1);
-  const onlineEvent = await createEvent(staff.token, 'Test online event', 5, {
-    eventMode: 'online',
-    meetingUrl: 'https://meet.example.test/session'
-  });
-  assert.equal(onlineEvent.event_mode, 'online');
-  assert.equal(onlineEvent.meeting_url, 'https://meet.example.test/session');
-  const staffEvents = await request('/api/staff/events', { token: staff.token });
-  assert.equal(staffEvents.status, 200);
-  assert.ok((await staffEvents.json()).some((event) => event.id === onlineEvent.id));
-  assert.equal((await request('/api/staff/events', { token: student.token })).status, 403);
-  const otherStaffEvents = await request('/api/staff/events', { token: secondStaff.token });
-  assert.equal((await otherStaffEvents.json()).some((event) => event.id === onlineEvent.id), false);
-  const publicOnlineEvents = await request('/api/events');
-  const listedOnlineEvent = (await publicOnlineEvents.json()).find((event) => event.id === onlineEvent.id);
-  assert.equal(listedOnlineEvent.event_mode, 'online');
-  assert.equal(Object.prototype.hasOwnProperty.call(listedOnlineEvent, 'meeting_url'), false);
-  assert.equal((await request(`/api/events/${onlineEvent.id}`)).status, 401);
-  const privateOnlineEvent = await request(`/api/events/${onlineEvent.id}`, { token: student.token });
-  assert.equal((await privateOnlineEvent.json()).meeting_url, '');
-  const ownerOnlineEvent = await request(`/api/events/${onlineEvent.id}`, { token: staff.token });
-  assert.equal((await ownerOnlineEvent.json()).meeting_url, onlineEvent.meeting_url);
-  const onlineRegistration = await request('/api/registrations', {
-    token: student.token,
-    method: 'POST',
-    body: { eventId: onlineEvent.id }
-  });
-  assert.equal(onlineRegistration.status, 201);
-  const registeredOnlineEvent = await request(`/api/events/${onlineEvent.id}`, { token: student.token });
-  assert.equal((await registeredOnlineEvent.json()).meeting_url, onlineEvent.meeting_url);
-  const png = Buffer.from(
-    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jz1sAAAAASUVORK5CYII=',
-    'base64'
-  );
-  const createPhotoForm = (alt, fileBytes = png) => {
-    const form = new FormData();
-    form.set('title', 'Test event with photo');
-    form.set('description', 'An event with an uploaded accessible photo.');
-    form.set('location', 'Test Gallery');
-    form.set('eventDate', futureDate());
-    form.set('capacity', '5');
-    form.set('category', 'Community');
-    form.set('imageAlt', alt);
-    form.set('image', new Blob([fileBytes], { type: 'image/png' }), 'event.png');
-    return form;
-  };
-  const missingImageAlt = await request('/api/events', {
-    token: staff.token,
-    method: 'POST',
-    body: createPhotoForm('')
-  });
-  assert.equal(missingImageAlt.status, 400);
-
-  const invalidImage = await request('/api/events', {
-    token: staff.token,
-    method: 'POST',
-    body: createPhotoForm('A test event photo.', Buffer.from('not an image'))
-  });
-  assert.equal(invalidImage.status, 400);
-
-  const oversizedImage = await request('/api/events', {
-    token: staff.token,
-    method: 'POST',
-    body: createPhotoForm('An oversized test image.', Buffer.alloc(2 * 1024 * 1024 + 1))
-  });
-  assert.equal(oversizedImage.status, 413);
-
-  const photoResponse = await request('/api/events', {
-    token: staff.token,
-    method: 'POST',
-    body: createPhotoForm('A small test image for an event.')
-  });
-  assert.equal(photoResponse.status, 201);
-  const photoEvent = await photoResponse.json();
-  createdEventIds.push(photoEvent.id);
-  assert.equal(photoEvent.staff_id, staff.user.id);
-  assert.equal(photoEvent.staff_name, staff.user.name);
-  assert.match(photoEvent.image_url, /^\/api\/event-images\/[a-f0-9]{32}\.png$/);
-  assert.equal(photoEvent.image_alt, 'A small test image for an event.');
-  const listedPhotoEvent = (await (await request('/api/events')).json())
-    .find((event) => event.id === photoEvent.id);
-  assert.equal(listedPhotoEvent.image_url, photoEvent.image_url);
-  assert.equal(listedPhotoEvent.image_alt, photoEvent.image_alt);
-  const photoFile = await request(photoEvent.image_url);
-  assert.equal(photoFile.status, 200);
-  assert.equal(photoFile.headers.get('content-type'), 'image/png');
-  assert.deepEqual(Buffer.from(await photoFile.arrayBuffer()), png);
-
-  const updatePhotoEvent = await request(`/api/events/${photoEvent.id}`, {
+  db.prepare(`
+    UPDATE events SET image_path = ?, image_alt = ?, event_mode = ?, meeting_url = ?
+    WHERE id = ?
+  `).run('legacy.jpg', 'Legacy photo description', 'online', 'https://legacy.example.test', fullEvent.id);
+  const editedLegacyEvent = await request(`/api/events/${fullEvent.id}`, {
     token: staff.token,
     method: 'PUT',
     body: {
-      title: photoEvent.title,
-      description: 'Updated event description.',
-      location: photoEvent.location,
-      eventDate: photoEvent.event_date,
-      capacity: photoEvent.capacity,
-      category: photoEvent.category
+      title: fullEvent.title,
+      description: fullEvent.description,
+      location: fullEvent.location,
+      eventDate: fullEvent.event_date,
+      capacity: fullEvent.capacity,
+      category: fullEvent.category
     }
   });
-  assert.equal(updatePhotoEvent.status, 200);
-  assert.equal((await updatePhotoEvent.json()).image_url, photoEvent.image_url);
-
-  const replacementForm = createPhotoForm('A replacement event photo.');
-  replacementForm.set('title', photoEvent.title);
-  replacementForm.set('location', photoEvent.location);
-  replacementForm.set('eventDate', photoEvent.event_date);
-  replacementForm.set('capacity', String(photoEvent.capacity));
-  replacementForm.set('category', photoEvent.category);
-  const replacementResponse = await request(`/api/events/${photoEvent.id}`, {
-    token: staff.token,
-    method: 'PUT',
-    body: replacementForm
-  });
-  assert.equal(replacementResponse.status, 200);
-  const replacementEvent = await replacementResponse.json();
-  assert.notEqual(replacementEvent.image_url, photoEvent.image_url);
-  assert.equal(replacementEvent.image_alt, 'A replacement event photo.');
-  assert.equal((await request(photoEvent.image_url)).status, 404);
-  assert.equal((await request(replacementEvent.image_url)).status, 200);
+  assert.equal(editedLegacyEvent.status, 200);
+  assert.deepEqual(
+    db.prepare('SELECT image_path, image_alt, event_mode, meeting_url FROM events WHERE id = ?').get(fullEvent.id),
+    {
+      image_path: 'legacy.jpg',
+      image_alt: 'Legacy photo description',
+      event_mode: 'online',
+      meeting_url: 'https://legacy.example.test'
+    }
+  );
+  const staffEvents = await request('/api/staff/events', { token: staff.token });
+  assert.equal(staffEvents.status, 200);
+  assert.equal((await request('/api/staff/events', { token: student.token })).status, 403);
 
   const directRegistration = await request('/api/registrations', {
     token: student.token,

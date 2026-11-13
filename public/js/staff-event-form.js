@@ -1,25 +1,10 @@
 (async function () {
-  // The same form is used to create and edit events.
   const form = document.getElementById('event-form');
   const message = document.getElementById('form-message');
   const eventId = new URLSearchParams(location.search).get('id');
-  const imageInput = document.getElementById('event-image');
-  const imageAlt = document.getElementById('image-alt');
-  const imagePreview = document.getElementById('image-preview');
-  const meetingField = document.getElementById('meeting-link-field');
-  const meetingUrl = document.getElementById('meetingUrl');
-  const eventModeError = document.getElementById('eventMode-error');
-  let previewUrl = '';
-  let hasAttemptedSubmit = false;
+  const dateInput = document.getElementById('eventDate');
   form.noValidate = true;
-
-  function updateMeetingField() {
-    const selectedMode = form.querySelector('input[name="eventMode"]:checked')?.value;
-    const isOnline = selectedMode === 'online';
-    meetingField.hidden = !isOnline;
-    meetingUrl.required = isOnline;
-    if (!isOnline) meetingUrl.value = '';
-  }
+  dateInput.min = new Date().toISOString().slice(0, 10);
 
   function updateFieldError(control) {
     let error = document.getElementById(`${control.id}-error`);
@@ -29,6 +14,7 @@
       error.className = 'field-error';
       control.insertAdjacentElement('afterend', error);
     }
+
     if (control.validity.valid) {
       control.removeAttribute('aria-invalid');
       error.hidden = true;
@@ -39,6 +25,7 @@
       else control.removeAttribute('aria-describedby');
       return true;
     }
+
     control.setAttribute('aria-invalid', 'true');
     error.textContent = control.validationMessage || 'Check this field.';
     error.hidden = false;
@@ -50,33 +37,9 @@
 
   function validateForm() {
     const controls = Array.from(form.elements)
-      .filter((control) => control.willValidate && control.type !== 'file' && control.type !== 'submit');
-    const invalidRadioNames = new Set();
-    let firstInvalid = null;
+      .filter((control) => control.willValidate && control.type !== 'submit');
+    let firstInvalid;
     for (const control of controls) {
-      if (control.type === 'radio') {
-        if (invalidRadioNames.has(control.name)) continue;
-        invalidRadioNames.add(control.name);
-        const group = Array.from(form.querySelectorAll(`input[type="radio"][name="${control.name}"]`));
-        const valid = group.some((radio) => radio.checked);
-        if (control.name === 'eventMode') {
-          eventModeError.hidden = valid;
-          eventModeError.textContent = valid ? '' : 'Choose the event format.';
-          for (const radio of group) {
-            if (valid) {
-              radio.removeAttribute('aria-invalid');
-              radio.removeAttribute('aria-describedby');
-            } else {
-              radio.setAttribute('aria-invalid', 'true');
-              radio.setAttribute('aria-describedby', eventModeError.id);
-            }
-          }
-          if (!valid) {
-            firstInvalid ||= group[0];
-          }
-        }
-        continue;
-      }
       if (!updateFieldError(control)) firstInvalid ||= control;
     }
     if (firstInvalid) {
@@ -85,23 +48,6 @@
     }
     return true;
   }
-
-  imageInput.addEventListener('change', () => {
-    imageAlt.required = imageInput.files.length > 0;
-    if (hasAttemptedSubmit) updateFieldError(imageAlt);
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    previewUrl = imageInput.files.length ? URL.createObjectURL(imageInput.files[0]) : '';
-    imagePreview.hidden = !previewUrl;
-    if (previewUrl) imagePreview.src = previewUrl;
-  });
-  form.querySelectorAll('input[name="eventMode"]').forEach((radio) => {
-    radio.addEventListener('change', () => {
-      updateMeetingField();
-      if (hasAttemptedSubmit) validateForm();
-    });
-  });
-  updateMeetingField();
-  document.getElementById('eventDate').min = new Date().toISOString().slice(0, 10);
 
   try {
     const user = await App.requireUser(['staff']);
@@ -119,16 +65,7 @@
         category: event.category,
         capacity: event.capacity
       })) form.elements[name].value = value;
-      form.querySelector(`input[name="eventMode"][value="${event.event_mode || 'in_person'}"]`).checked = true;
-      meetingUrl.value = event.meeting_url || '';
-      updateMeetingField();
-      const today = new Date().toISOString().slice(0, 10);
-      if (event.event_date < today) document.getElementById('eventDate').min = event.event_date;
-      imageAlt.value = event.image_alt || '';
-      if (event.image_url) {
-        imagePreview.src = event.image_url;
-        imagePreview.hidden = false;
-      }
+      if (event.event_date < dateInput.min) dateInput.min = event.event_date;
     }
   } catch (error) {
     App.showMessage(message, error.message, 'error');
@@ -137,18 +74,18 @@
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
-    hasAttemptedSubmit = true;
     if (!validateForm()) {
       App.showMessage(message, 'Please correct the highlighted fields.', 'error');
       return;
     }
-    const data = new FormData(form);
-    data.set('capacity', String(Number(data.get('capacity'))));
+
+    const data = Object.fromEntries(new FormData(form));
+    data.capacity = Number(data.capacity);
     App.showMessage(message, 'Saving event…');
     try {
       await App.api(eventId ? `/api/events/${eventId}` : '/api/events', {
         method: eventId ? 'PUT' : 'POST',
-        body: data
+        body: JSON.stringify(data)
       });
       location.assign('/staff/events.html?saved=1');
     } catch (error) {

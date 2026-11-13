@@ -23,7 +23,6 @@
     for (const [label, value] of [
       ['Date', new Date(`${event.event_date}T00:00:00`).toLocaleDateString(undefined, { dateStyle: 'long' })],
       ['Location', event.location],
-      ['Format', event.event_mode === 'online' ? 'Online' : 'In person'],
       ['Category', event.category],
       ['Event contact', event.staff_name],
       ['Places remaining', `${placesLeft} of ${event.capacity}`]
@@ -33,16 +32,6 @@
       const descriptionItem = document.createElement('dd');
       descriptionItem.textContent = value;
       info.append(term, descriptionItem);
-    }
-    if (event.event_mode === 'online' && event.meeting_url) {
-      const term = document.createElement('dt');
-      term.textContent = 'Meeting link';
-      const linkDescription = document.createElement('dd');
-      const link = document.createElement('a');
-      link.href = event.meeting_url;
-      link.textContent = 'Open online meeting';
-      linkDescription.append(link);
-      info.append(term, linkDescription);
     }
     const feedback = document.createElement('p');
     feedback.className = 'message event-feedback';

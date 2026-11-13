@@ -42,13 +42,11 @@ function makeEventCard(event) {
   title.append(titleLink);
 
   const fallbackArtwork = eventArtwork[event.title];
-  if (event.image_url || fallbackArtwork) {
+  if (fallbackArtwork) {
     const image = document.createElement('img');
     image.className = 'event-image';
-    image.src = event.image_url || fallbackArtwork.src;
-    image.alt = event.image_url
-      ? event.image_alt || `Photo for ${event.title}.`
-      : fallbackArtwork.alt;
+    image.src = fallbackArtwork.src;
+    image.alt = fallbackArtwork.alt;
     image.loading = 'lazy';
     image.decoding = 'async';
     card.append(image);
@@ -59,7 +57,7 @@ function makeEventCard(event) {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
   });
   const details = document.createElement('p');
-  details.textContent = `${event.category} · ${event.event_mode === 'online' ? 'Online' : event.location}`;
+  details.textContent = `${event.category} · ${event.location}`;
   const capacity = document.createElement('p');
   capacity.textContent = `${event.registered_count} of ${event.capacity} places taken`;
   const method = document.createElement('span');

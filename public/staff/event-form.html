@@ -12,27 +12,10 @@
       <label for="title">Event title (required)</label><input id="title" name="title" maxlength="120" required>
       <label for="description">Description (required)</label><textarea id="description" name="description" rows="4" maxlength="2000" required></textarea>
       <label for="location">Location (required)</label><input id="location" name="location" maxlength="160" required>
-      <fieldset id="event-mode-options">
-        <legend>Event format (required)</legend>
-        <label class="choice-label"><input type="radio" name="eventMode" value="in_person" required checked> In person</label>
-        <label class="choice-label"><input type="radio" name="eventMode" value="online" required> Online</label>
-      </fieldset>
-      <p id="eventMode-error" class="field-error" hidden></p>
-      <div id="meeting-link-field" hidden>
-        <label for="meetingUrl">Meeting link (required for online events)</label>
-        <input id="meetingUrl" name="meetingUrl" type="url" maxlength="500" inputmode="url" pattern="https://.+" title="Enter a meeting link that starts with https://">
-        <p class="hint">Use a secure HTTPS link.</p>
-      </div>
       <label for="eventDate">Date (required)</label><input id="eventDate" name="eventDate" type="date" required>
       <label for="category">Category (required)</label><select id="category" name="category" required><option>Academic</option><option>Careers</option><option>Community</option><option>Social</option><option>Sports</option><option>Workshop</option><option>General</option></select>
       <label for="capacity">Capacity (required)</label><input id="capacity" name="capacity" type="number" min="1" max="10000" step="1" required>
-      <label for="event-image">Event photo (optional)</label>
-      <input id="event-image" name="image" type="file" accept="image/jpeg,image/png,image/webp" aria-describedby="image-hint">
-      <p id="image-hint" class="hint">Choose a JPG, PNG or WebP image up to 2 MB. Add a short description for screen-reader users.</p>
-      <img id="image-preview" class="event-image-preview" alt="" hidden>
-      <label for="image-alt">Photo description (required when adding a photo)</label>
-      <input id="image-alt" name="imageAlt" maxlength="180" aria-describedby="image-hint">
-      <p class="hint">Students can register until the event reaches capacity. Places are given on a first-come basis.</p>
+      <p class="hint">Event cards use the existing campus photos where available. Students register on a first-come basis.</p>
       <button id="save-event" type="submit">Create event</button> <a href="/staff/events.html">Cancel</a>
     </form>
   </main>
