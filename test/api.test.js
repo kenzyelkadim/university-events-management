@@ -1,5 +1,10 @@
 const assert = require('node:assert/strict');
+const { execFileSync } = require('node:child_process');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const { test } = require('node:test');
+const Database = require('better-sqlite3');
 const app = require('../server');
 const db = require('../db');
 const { hashPassword } = require('../auth');
@@ -40,6 +45,98 @@ async function request(path, { token, method = 'GET', body } = {}) {
   });
 }
 
+test('database migration removes retired event metadata and preserves event records', (t) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'university-events-migration-'));
+  const databasePath = path.join(directory, 'legacy.db');
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+
+  const legacyDb = new Database(databasePath);
+  legacyDb.pragma('foreign_keys = ON');
+  legacyDb.exec(`
+    CREATE TABLE users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      email TEXT NOT NULL UNIQUE,
+      role TEXT NOT NULL CHECK (role IN ('student', 'staff'))
+    );
+    CREATE TABLE events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      description TEXT NOT NULL,
+      location TEXT NOT NULL,
+      event_date TEXT NOT NULL,
+      capacity INTEGER NOT NULL CHECK (capacity > 0),
+      staff_id INTEGER NOT NULL,
+      category TEXT NOT NULL DEFAULT 'General',
+      image_path TEXT,
+      image_alt TEXT NOT NULL DEFAULT '',
+      event_mode TEXT NOT NULL DEFAULT 'in_person',
+      meeting_url TEXT NOT NULL DEFAULT '',
+      FOREIGN KEY (staff_id) REFERENCES users(id)
+    );
+    CREATE TABLE registrations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      event_id INTEGER NOT NULL,
+      student_id INTEGER NOT NULL,
+      attended INTEGER NOT NULL DEFAULT 0 CHECK (attended IN (0, 1)),
+      registered_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (event_id) REFERENCES events(id),
+      FOREIGN KEY (student_id) REFERENCES users(id),
+      UNIQUE (event_id, student_id)
+    );
+    INSERT INTO users (id, name, email, role) VALUES
+      (1, 'Event Team', 'staff@example.test', 'staff'),
+      (2, 'Student', 'student@example.test', 'student');
+    INSERT INTO events (
+      id, title, description, location, event_date, capacity, staff_id, category,
+      image_path, image_alt, event_mode, meeting_url
+    ) VALUES (
+      41, 'Legacy event', 'Event description', 'Main Hall', '2026-12-01', 10, 1, 'Academic',
+      'legacy.jpg', 'Legacy image text', 'online', 'https://example.test/meeting'
+    );
+    INSERT INTO registrations (id, event_id, student_id, attended, registered_at)
+    VALUES (73, 41, 2, 1, '2026-10-10 12:00:00');
+  `);
+  legacyDb.close();
+
+  const dbModulePath = path.resolve(__dirname, '..', 'db.js');
+  const migrationResult = execFileSync(process.execPath, ['-e', `
+    const db = require(${JSON.stringify(dbModulePath)});
+    const result = {
+      columns: db.prepare('PRAGMA table_info(events)').all().map((row) => row.name),
+      event: db.prepare('SELECT id, title, description, location, event_date, capacity, staff_id, category FROM events WHERE id = 41').get(),
+      registration: db.prepare('SELECT id, event_id, student_id, attended, registered_at FROM registrations WHERE id = 73').get()
+    };
+    console.log(JSON.stringify(result));
+    db.close();
+  `], {
+    cwd: path.resolve(__dirname, '..'),
+    env: { ...process.env, DATABASE_PATH: databasePath },
+    encoding: 'utf8'
+  });
+  const result = JSON.parse(migrationResult);
+  for (const column of ['image_path', 'image_alt', 'event_mode', 'meeting_url']) {
+    assert.equal(result.columns.includes(column), false);
+  }
+  assert.deepEqual(result.event, {
+    id: 41,
+    title: 'Legacy event',
+    description: 'Event description',
+    location: 'Main Hall',
+    event_date: '2026-12-01',
+    capacity: 10,
+    staff_id: 1,
+    category: 'Academic'
+  });
+  assert.deepEqual(result.registration, {
+    id: 73,
+    event_id: 41,
+    student_id: 2,
+    attended: 1,
+    registered_at: '2026-10-10 12:00:00'
+  });
+});
+
 test('student registration and staff event management', async (t) => {
   assert.deepEqual(
     db.prepare('SELECT DISTINCT role FROM users ORDER BY role').all().map((row) => row.role),
@@ -48,10 +145,10 @@ test('student registration and staff event management', async (t) => {
   const eventColumns = db.prepare('PRAGMA table_info(events)').all().map((row) => row.name);
   const registrationColumns = db.prepare('PRAGMA table_info(registrations)').all().map((row) => row.name);
   assert.equal(eventColumns.includes('registration_method'), false);
-  assert.equal(eventColumns.includes('image_path'), true);
-  assert.equal(eventColumns.includes('image_alt'), true);
-  assert.equal(eventColumns.includes('event_mode'), true);
-  assert.equal(eventColumns.includes('meeting_url'), true);
+  assert.equal(eventColumns.includes('image_path'), false);
+  assert.equal(eventColumns.includes('image_alt'), false);
+  assert.equal(eventColumns.includes('event_mode'), false);
+  assert.equal(eventColumns.includes('meeting_url'), false);
   assert.equal(eventColumns.includes('application_question'), false);
   assert.equal(eventColumns.includes('eligible_faculty'), false);
   assert.equal(registrationColumns.includes('status'), false);
@@ -181,32 +278,6 @@ test('student registration and staff event management', async (t) => {
   };
 
   const fullEvent = await createEvent(staff.token, 'Test capacity event', 1);
-  db.prepare(`
-    UPDATE events SET image_path = ?, image_alt = ?, event_mode = ?, meeting_url = ?
-    WHERE id = ?
-  `).run('legacy.jpg', 'Legacy photo description', 'online', 'https://legacy.example.test', fullEvent.id);
-  const editedLegacyEvent = await request(`/api/events/${fullEvent.id}`, {
-    token: staff.token,
-    method: 'PUT',
-    body: {
-      title: fullEvent.title,
-      description: fullEvent.description,
-      location: fullEvent.location,
-      eventDate: fullEvent.event_date,
-      capacity: fullEvent.capacity,
-      category: fullEvent.category
-    }
-  });
-  assert.equal(editedLegacyEvent.status, 200);
-  assert.deepEqual(
-    db.prepare('SELECT image_path, image_alt, event_mode, meeting_url FROM events WHERE id = ?').get(fullEvent.id),
-    {
-      image_path: 'legacy.jpg',
-      image_alt: 'Legacy photo description',
-      event_mode: 'online',
-      meeting_url: 'https://legacy.example.test'
-    }
-  );
   const staffEvents = await request('/api/staff/events', { token: staff.token });
   assert.equal(staffEvents.status, 200);
   assert.equal((await request('/api/staff/events', { token: student.token })).status, 403);

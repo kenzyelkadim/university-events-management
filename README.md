@@ -68,7 +68,7 @@ public/
 |---|---|---|
 | Student / staff | Sign in | Sign in with an existing university account |
 | Student | Dashboard | Upcoming-event and registration counts; next registered event |
-| Student | Browse events | Search title/description/location; filter by category; show more results. Hover or focus an event card and activate anywhere on it to open details. |
+| Student | Browse events | Search title/description/location; filter by category; show more results. The event title link has a hit area across the whole card, so the card opens on click while the link remains keyboard accessible. |
 | Student | Event details | View date, location and capacity; register while places remain |
 | Student | My registrations | Current status and event details |
 | Event Team | Dashboard | Upcoming events, registration totals and next event |
@@ -85,7 +85,7 @@ users (1) ──< registrations >── (1) events
 - `users`: name, unique email and account type (`student`, `staff`). The app labels the staff account type “Event Team.”
 - `events`: title, description, date, location, capacity, category and staff owner.
 - Event cards use the existing static campus photos where a matching sample event has artwork.
-- Older image and online-event database columns are retained for existing databases but are no longer used by the app.
+- Startup removes retired image and online-event metadata columns from existing databases while keeping events and registrations.
 - `registrations`: unique event/student pair, attendance flag and registration date.
 - Foreign keys and indexes support referential integrity and event/registration lookups.
 

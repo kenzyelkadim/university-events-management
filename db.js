@@ -28,10 +28,6 @@ db.exec(`
     capacity INTEGER NOT NULL CHECK (capacity > 0),
     staff_id INTEGER NOT NULL,
     category TEXT NOT NULL DEFAULT 'General',
-    image_path TEXT,
-    image_alt TEXT NOT NULL DEFAULT '',
-    event_mode TEXT NOT NULL DEFAULT 'in_person',
-    meeting_url TEXT NOT NULL DEFAULT '',
     FOREIGN KEY (staff_id) REFERENCES users(id)
   );
 
@@ -58,10 +54,6 @@ function ensureColumn(table, column, definition) {
 ensureColumn('users', 'faculty', "TEXT NOT NULL DEFAULT 'Computer Science'");
 ensureColumn('users', 'password_hash', 'TEXT');
 ensureColumn('events', 'category', "TEXT NOT NULL DEFAULT 'General'");
-ensureColumn('events', 'image_path', 'TEXT');
-ensureColumn('events', 'image_alt', "TEXT NOT NULL DEFAULT ''");
-ensureColumn('events', 'event_mode', "TEXT NOT NULL DEFAULT 'in_person'");
-ensureColumn('events', 'meeting_url', "TEXT NOT NULL DEFAULT ''");
 ensureColumn('registrations', 'attended', 'INTEGER NOT NULL DEFAULT 0');
 
 // Keep existing databases compatible with the two current roles and event ownership.
@@ -76,7 +68,15 @@ if (initialRegistrationColumns.includes('applied_at') && !initialRegistrationCol
   db.exec('ALTER TABLE registrations RENAME COLUMN applied_at TO registered_at');
 }
 
-const legacyEventFields = new Set(['eligible_faculty', 'application_question', 'registration_method']);
+const legacyEventFields = new Set([
+  'eligible_faculty',
+  'application_question',
+  'registration_method',
+  'image_path',
+  'image_alt',
+  'event_mode',
+  'meeting_url'
+]);
 const legacyRegistrationFields = new Set(['status', 'application_answer']);
 const currentEventColumns = db.prepare('PRAGMA table_info(events)').all();
 const currentRegistrationColumns = db.prepare('PRAGMA table_info(registrations)').all();
@@ -101,17 +101,11 @@ if (needsSimpleWorkflowMigration) {
         capacity INTEGER NOT NULL CHECK (capacity > 0),
         staff_id INTEGER NOT NULL,
         category TEXT NOT NULL DEFAULT 'General',
-        image_path TEXT,
-        image_alt TEXT NOT NULL DEFAULT '',
-        event_mode TEXT NOT NULL DEFAULT 'in_person',
-        meeting_url TEXT NOT NULL DEFAULT '',
         FOREIGN KEY (staff_id) REFERENCES users(id)
       );
       INSERT INTO events_clean
-        (id, title, description, location, event_date, capacity, staff_id, category, image_path,
-         image_alt, event_mode, meeting_url)
-      SELECT id, title, description, location, event_date, capacity, staff_id, category, image_path,
-        image_alt, event_mode, meeting_url
+        (id, title, description, location, event_date, capacity, staff_id, category)
+      SELECT id, title, description, location, event_date, capacity, staff_id, category
       FROM events;
 
       CREATE TABLE registrations_clean (
