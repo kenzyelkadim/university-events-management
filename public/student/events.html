@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Browse events | University Events</title><link rel="stylesheet" href="/style.css"></head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <header class="site-header"><a class="brand" href="/student/events.html">University Events</a><nav id="app-nav" aria-label="Main navigation"></nav></header>
+  <main id="main" class="page-shell" tabindex="-1">
+    <p id="page-message" class="message" hidden></p>
+    <p class="eyebrow">Discover</p><h1>Browse events</h1>
+    <form id="filters" class="filter-panel">
+      <div><label for="search">Search events</label><input id="search" name="search" type="search" maxlength="120"></div>
+      <div><label for="category">Category</label><select id="category" name="category"><option value="">All categories</option><option>Community</option><option>Careers</option><option>Workshop</option><option>Academic</option><option>Social</option><option>Sports</option><option>General</option></select></div>
+      <button type="submit">Apply filters</button><button id="clear-filters" class="button-secondary" type="button">Clear</button>
+    </form>
+    <p id="events-status" class="message">Loading events…</p>
+    <p id="event-count" class="hint"></p>
+    <ul id="event-list" class="card-grid"></ul>
+    <button id="show-more-events" class="button-secondary" type="button" hidden>Show more events</button>
+  </main>
+  <footer class="site-footer"><p>University Events</p></footer>
+  <script src="/js/common.js"></script><script src="/js/events.js"></script>
+</body>
+</html>

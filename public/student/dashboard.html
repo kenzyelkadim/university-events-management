@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Student dashboard | University Events</title><link rel="stylesheet" href="/style.css"></head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <header class="site-header"><a class="brand" href="/student/dashboard.html">University Events</a><nav id="app-nav" aria-label="Main navigation"></nav></header>
+  <main id="main" class="page-shell" tabindex="-1">
+    <p id="page-message" class="message" hidden></p>
+    <p class="eyebrow">Student portal</p>
+    <h1>Dashboard</h1>
+    <p class="lead">Welcome, <span id="welcome-name">student</span>. Find events and keep track of your places.</p>
+    <p id="dashboard-status" class="message">Loading your dashboard…</p>
+    <section aria-labelledby="student-summary-title">
+      <h2 id="student-summary-title">Your activity</h2>
+      <div class="summary-grid">
+        <article class="summary-card"><h3>Upcoming events</h3><p id="upcoming-count">—</p><a href="/student/events.html">Browse events</a></article>
+        <article class="summary-card"><h3>Your registrations</h3><p id="registration-count">—</p><a href="/student/registrations.html">View registrations</a></article>
+      </div>
+    </section>
+    <section class="panel dashboard-next" aria-labelledby="next-event-title">
+      <h2 id="next-event-title">Your next registered event</h2>
+      <p id="next-event">Loading…</p>
+    </section>
+  </main>
+  <footer class="site-footer"><p>University Events</p></footer>
+  <script src="/js/common.js"></script><script src="/js/student-dashboard.js"></script>
+</body>
+</html>

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Discover and manage university events.">
+  <title>Sign in | University Events</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <header class="site-header"><a class="brand" href="/">University Events</a></header>
+  <main id="main" class="auth-layout" tabindex="-1">
+    <section class="auth-intro">
+      <p class="eyebrow">Campus events, all in one place</p>
+      <h1>Find your next university event.</h1>
+      <p><strong>Students</strong> discover events, reserve places and check their registrations.</p>
+      <p><strong>Event Team</strong> members publish and manage events or help check attendees in. Organizers and ushers use the same event-team account type.</p>
+    </section>
+    <section class="panel auth-panel" aria-labelledby="auth-title">
+      <h2 id="auth-title">Sign in</h2>
+      <p id="auth-message" class="message" hidden></p>
+      <form id="login-form">
+        <label for="login-email">University email</label>
+        <input id="login-email" name="email" type="email" autocomplete="username" required>
+        <label for="login-password">Password</label>
+        <input id="login-password" name="password" type="password" autocomplete="current-password" required>
+        <button type="submit">Sign in</button>
+      </form>
+      <p class="hint">Sign in with your university account credentials.</p>
+    </section>
+  </main>
+  <footer class="site-footer"><p>University Events</p></footer>
+  <script src="/js/common.js"></script>
+  <script src="/js/login.js"></script>
+</body>
+</html>

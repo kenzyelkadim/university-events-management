@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>My events | University Events</title><link rel="stylesheet" href="/style.css"></head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <header class="site-header"><a class="brand" href="/staff/events.html">University Events</a><nav id="app-nav" aria-label="Main navigation"></nav></header>
+  <main id="main" class="page-shell" tabindex="-1">
+    <p id="page-message" class="message" hidden></p>
+    <p class="eyebrow">Event Team</p>
+    <div class="page-heading-row">
+      <div>
+        <h1>My events</h1>
+        <p class="lead">Create events, update details, or see who has registered.</p>
+      </div>
+      <a class="button-link" href="/staff/event-form.html">Create an event</a>
+    </div>
+    <p id="events-status" class="message">Loading your events…</p>
+    <p id="event-count" class="hint"></p>
+    <div class="table-wrap"><table class="stack-table"><caption class="visually-hidden">Events you manage</caption><thead><tr>
+      <th scope="col" aria-sort="none"><button class="table-sort" type="button" data-sort="title">Event</button></th>
+      <th scope="col" aria-sort="ascending"><button class="table-sort" type="button" data-sort="event_date">Date</button></th>
+      <th scope="col" aria-sort="none"><button class="table-sort" type="button" data-sort="registered_count">Places registered</button></th>
+      <th scope="col">Actions</th>
+    </tr></thead><tbody id="event-rows"></tbody></table></div>
+    <button id="show-more-events" class="button-secondary" type="button" hidden>Show more events</button>
+  </main>
+  <footer class="site-footer"><p>University Events</p></footer>
+  <script src="/js/common.js"></script><script src="/js/staff-events.js"></script>
+</body>
+</html>

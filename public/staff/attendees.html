@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Event attendees | University Events</title><link rel="stylesheet" href="/style.css"></head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <header class="site-header"><a class="brand" href="/staff/events.html">University Events</a><nav id="app-nav" aria-label="Main navigation"></nav></header>
+  <main id="main" class="page-shell" tabindex="-1">
+    <p id="page-message" class="message" hidden></p><p class="eyebrow">Event Team</p><h1>Check in attendees</h1>
+    <p class="lead">Organizers can view event registrations; ushers can use this page to mark attendance on the day.</p>
+    <div class="filter-panel"><div><label for="event-select">Event</label><select id="event-select"><option value="">Select an event</option></select></div><div><label for="attendee-search">Search attendees</label><input id="attendee-search" type="search" maxlength="120"></div></div>
+    <p id="attendance-status" class="message">Choose an event to view its attendees.</p>
+    <p id="attendee-count" class="hint"></p>
+    <div class="table-wrap"><table id="attendance-table" class="stack-table"><caption class="visually-hidden">Registered attendees and their attendance status</caption><thead><tr><th scope="col">Student</th><th scope="col">Email</th><th scope="col">Attendance</th></tr></thead><tbody id="attendee-rows"></tbody></table></div>
+  </main>
+  <footer class="site-footer"><p>University Events</p></footer>
+  <script src="/js/common.js"></script><script src="/js/staff-attendees.js"></script>
+</body>
+</html>

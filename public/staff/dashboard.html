@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Event Team dashboard | University Events</title><link rel="stylesheet" href="/style.css"></head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <header class="site-header"><a class="brand" href="/staff/dashboard.html">University Events</a><nav id="app-nav" aria-label="Main navigation"></nav></header>
+  <main id="main" class="page-shell" tabindex="-1">
+    <p id="page-message" class="message" hidden></p>
+    <p class="eyebrow">Event Team</p>
+    <h1>Dashboard</h1>
+    <p class="lead">Welcome, <span id="welcome-name">Event Team member</span>. Manage your events and attendee check-in.</p>
+    <p id="dashboard-status" class="message">Loading your dashboard…</p>
+    <section aria-labelledby="staff-summary-title">
+      <h2 id="staff-summary-title">Your events</h2>
+      <div class="summary-grid">
+        <article class="summary-card"><h3>Upcoming events</h3><p id="upcoming-count">—</p><a href="/staff/events.html">Manage events</a></article>
+        <article class="summary-card"><h3>Registrations</h3><p id="registration-count">—</p><a href="/staff/attendees.html">Check in attendees</a></article>
+      </div>
+    </section>
+    <section class="panel dashboard-next" aria-labelledby="next-event-title">
+      <h2 id="next-event-title">Your next event</h2>
+      <p id="next-event">Loading…</p>
+    </section>
+    <p><a class="button-link" href="/staff/event-form.html">Create an event</a></p>
+  </main>
+  <footer class="site-footer"><p>University Events</p></footer>
+  <script src="/js/common.js"></script><script src="/js/staff-dashboard.js"></script>
+</body>
+</html>
